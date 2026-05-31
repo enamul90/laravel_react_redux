@@ -6,19 +6,19 @@ export const api = createApi({
   reducerPath: "api",
 
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:8000/api/",
+    baseUrl: "https://jsonplaceholder.typicode.com/",
   }),
 
   endpoints: (builder) => ({
     // GET ALL CATEGORY
     getCategories: builder.query({
-      query: () => "category",
+      query: () => "posts",
     }),
 
     // CREATE CATEGORY
     createCategory: builder.mutation({
       query: (newCategory) => ({
-        url: "category",
+        url: "posts",
         method: "POST",
         body: newCategory,
       }),
@@ -27,7 +27,7 @@ export const api = createApi({
     // UPDATE CATEGORY
     updateCategory: builder.mutation({
       query: ({ id, updatedCategory }) => ({
-        url: `category/${id}`,
+        url: `posts/${id}`,
         method: "PUT",
         body: updatedCategory,
       }),

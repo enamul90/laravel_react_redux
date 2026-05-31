@@ -21,7 +21,7 @@ import {
   useDeleteCategoryMutation,
   useGetCategoriesQuery,
 } from "../services/api";
-import Sidebar from "../layout/Sidebar";
+
 
 // --- Types ---
 interface Category {
@@ -308,7 +308,6 @@ const Dashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50/50 font-sans">
-      <Sidebar />
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
