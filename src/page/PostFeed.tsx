@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   useCreateCategoryMutation,
+  useDeleteCategoryMutation,
   useGetCategoriesQuery,
+  useUpdateCategoryMutation,
 } from "../services/api";
 
 interface Post {
@@ -20,8 +22,18 @@ const PostFeed: React.FC = () => {
 
   const [
     createCategory,
-    { isLoading: createLoading, error: createError, isSuccess },
+    { isLoading: createLoading, error: createError },
   ] = useCreateCategoryMutation();
+
+  const [
+    updateCategory,
+    { isLoading: updateLoading, error: updateError },
+  ] = useUpdateCategoryMutation();
+
+  const [
+    deleteCategory,
+    { isLoading: deleteLoading, error: deleteError },
+  ] = useDeleteCategoryMutation();
 
   // --- Form States ---
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -29,19 +41,20 @@ const PostFeed: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ title: "", body: "" });
   const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (isSuccess) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShowPopup(true);
-
-      const timer = setTimeout(() => {
-        setShowPopup(false);
-      }, 3000);
-
-      return () => clearTimeout(timer);
+    if (!showPopup) {
+      return undefined;
     }
-  }, [isSuccess]);
+
+    const timer = setTimeout(() => {
+      setShowPopup(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [showPopup]);
 
   // --- Handlers ---
   const handleAddNew = () => {
@@ -58,24 +71,44 @@ const PostFeed: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" }); // Scroll to form
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isEditing) {
-      console.log("Updating post ID:", selectedId, formData);
-      alert("Post Updated (check console)");
-    } else {
-      try {
-        await createCategory(formData).unwrap();
-      } catch (err) {
-        console.log("Create Error:", err);
-      }
+  const handleDeleteClick = async (id: number) => {
+    setDeletingId(id);
+    try {
+      await deleteCategory(id).unwrap();
+      setPopupMessage("Post Deleted Successfully 🎉");
+      setShowPopup(true);
+    } catch (err) {
+      console.log("Delete Error:", err);
+    } finally {
+      setDeletingId(null);
     }
-    setIsFormOpen(false); // Close form after submit
   };
 
-  if (getLoading )
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (isEditing && selectedId !== null) {
+        await updateCategory({ id: selectedId, updatedCategory: formData }).unwrap();
+        setPopupMessage("Post Updated Successfully 🎉");
+      } else {
+        await createCategory(formData).unwrap();
+        setPopupMessage("Post Created Successfully 🎉");
+      }
+
+      setShowPopup(true);
+      setIsFormOpen(false);
+      setIsEditing(false);
+      setSelectedId(null);
+      setFormData({ title: "", body: "" });
+    } catch (err) {
+      console.log(isEditing ? "Update Error:" : "Create Error:", err);
+    }
+  };
+
+  if (getLoading)
     return <div className="text-center p-10 font-bold">Loading...</div>;
-  if (getError || createError)
+  if (getError || createError || updateError || deleteError)
     return (
       <div className="text-center p-10 text-red-500">Error loading data.</div>
     );
@@ -85,7 +118,7 @@ const PostFeed: React.FC = () => {
       {showPopup && (
         <div className="fixed top-5 right-5 z-50">
           <div className="bg-green-500 text-white px-4 py-3 rounded shadow-lg animate-bounce">
-            Category Created Successfully 🎉
+            {popupMessage}
           </div>
         </div>
       )}
@@ -149,7 +182,13 @@ const PostFeed: React.FC = () => {
                     type="submit"
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
                   >
-                    {isEditing ? "Save Changes" : createLoading ? "Loading.." : "Post Content"}
+                    {isEditing
+                      ? updateLoading
+                        ? "Updating..."
+                        : "Save Changes"
+                      : createLoading
+                      ? "Creating..."
+                      : "Post Content"}
                   </button>
                   <button
                     type="button"
@@ -204,21 +243,29 @@ const PostFeed: React.FC = () => {
                     </svg>
                   </button>
                   {/* Delete Button */}
-                  <button className="p-2 text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
+                  <button
+                    onClick={() => handleDeleteClick(post.id)}
+                    disabled={deleteLoading && deletingId === post.id}
+                    className={`p-2 text-red-600 bg-red-50 rounded-md transition ${deleteLoading && deletingId === post.id ? "opacity-50 cursor-not-allowed" : "hover:bg-red-100"}`}
+                  >
+                    {deleteLoading && deletingId === post.id ? (
+                      <span className="text-sm font-semibold">Deleting...</span>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
